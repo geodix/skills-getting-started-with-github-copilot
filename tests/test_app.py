@@ -5,19 +5,22 @@ client = TestClient(app)
 TEST_EMAIL = "test.student@mergington.edu"
 
 def get_any_activity_name():
-    r = client.get("/activities")
-    assert r.status_code == 200
-    activities = r.json()
+    response = client.get("/activities")
+    assert response.status_code == 200
+    activities = response.json()
     assert isinstance(activities, dict)
     assert activities, "Expected at least one activity"
     return next(iter(activities.keys()))
 
 def test_get_activities():
-    r = client.get("/activities")
-    assert r.status_code == 200
-    data = r.json()
-    assert isinstance(data, dict)
-    for name, activity in data.items():
+    # Arrange
+    # Act
+    response = client.get("/activities")
+    # Assert
+    assert response.status_code == 200
+    activities = response.json()
+    assert isinstance(activities, dict)
+    for name, activity in activities.items():
         assert "description" in activity
         assert "schedule" in activity
         assert "max_participants" in activity
@@ -25,37 +28,44 @@ def test_get_activities():
         assert isinstance(activity["participants"], list)
 
 def test_signup_unregister_lifecycle():
+    # Arrange
     activity = get_any_activity_name()
-
-    # ensure no preexisting test email
     client.post(f"/activities/{activity}/unregister?email={TEST_EMAIL}")
 
-    r = client.post(f"/activities/{activity}/signup?email={TEST_EMAIL}")
-    assert r.status_code == 200
-    assert "Signed up" in r.json().get("message", "")
+    # Act
+    signup_response = client.post(f"/activities/{activity}/signup?email={TEST_EMAIL}")
+    # Assert
+    assert signup_response.status_code == 200
+    assert "Signed up" in signup_response.json().get("message", "")
 
-    r = client.get("/activities")
-    participants = r.json()[activity]["participants"]
-    assert TEST_EMAIL in participants
+    # Act
+    before = client.get("/activities").json()[activity]["participants"]
+    assert TEST_EMAIL in before
 
-    r = client.post(f"/activities/{activity}/unregister?email={TEST_EMAIL}")
-    assert r.status_code == 200
-    assert "Unregistered" in r.json().get("message", "")
+    # Act
+    unregister_response = client.post(f"/activities/{activity}/unregister?email={TEST_EMAIL}")
+    # Assert
+    assert unregister_response.status_code == 200
+    assert "Unregistered" in unregister_response.json().get("message", "")
 
-    r = client.get("/activities")
-    participants = r.json()[activity]["participants"]
-    assert TEST_EMAIL not in participants
+    # Act
+    after = client.get("/activities").json()[activity]["participants"]
+    assert TEST_EMAIL not in after
 
 def test_repeated_signup_fails():
+    # Arrange
     activity = get_any_activity_name()
     client.post(f"/activities/{activity}/unregister?email={TEST_EMAIL}")
 
-    # first signup succeeds
-    r1 = client.post(f"/activities/{activity}/signup?email={TEST_EMAIL}")
-    assert r1.status_code == 200
+    # Act
+    first = client.post(f"/activities/{activity}/signup?email={TEST_EMAIL}")
+    # Assert
+    assert first.status_code == 200
 
-    # duplicate signup returns 400
-    r2 = client.post(f"/activities/{activity}/signup?email={TEST_EMAIL}")
-    assert r2.status_code == 400
+    # Act
+    second = client.post(f"/activities/{activity}/signup?email={TEST_EMAIL}")
+    # Assert
+    assert second.status_code == 400
 
+    # Cleanup
     client.post(f"/activities/{activity}/unregister?email={TEST_EMAIL}")
